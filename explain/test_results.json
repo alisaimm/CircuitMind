@@ -1,0 +1,189 @@
+[
+  {
+    "label": "Basic LED Circuit",
+    "input": {
+      "components": [
+        "battery",
+        "resistor",
+        "led"
+      ],
+      "connections": [
+        "battery -> resistor -> led"
+      ]
+    },
+    "output": {
+      "explanation": "This circuit uses a battery (power source) that provides electrical energy to the circuit, a resistor (current limiter) that limits and controls the flow of current, and a led (light emitter) that emits light when current flows through it. Current flows from the battery \u2192 resistor \u2192 led. This causes the LED to emit light.",
+      "component_details": [
+        {
+          "name": "battery",
+          "role": "power source",
+          "description": "provides electrical energy to the circuit"
+        },
+        {
+          "name": "resistor",
+          "role": "current limiter",
+          "description": "limits and controls the flow of current"
+        },
+        {
+          "name": "led",
+          "role": "light emitter",
+          "description": "emits light when current flows through it"
+        }
+      ],
+      "flow_description": "Current flows from the battery \u2192 resistor \u2192 led. This causes the LED to emit light.",
+      "warnings": []
+    }
+  },
+  {
+    "label": "Motor Control Circuit",
+    "input": {
+      "components": [
+        "battery",
+        "resistor",
+        "transistor",
+        "motor"
+      ],
+      "connections": [
+        "battery -> resistor -> transistor -> motor"
+      ]
+    },
+    "output": {
+      "explanation": "This circuit uses a battery (power source) that provides electrical energy to the circuit, a resistor (current limiter) that limits and controls the flow of current, a transistor (switch/amplifier) that amplifies signals or acts as an electronic switch, and a motor (mechanical output) that converts electrical energy into rotational motion. Current flows from the battery \u2192 resistor \u2192 transistor \u2192 motor. This causes the motor to spin.",
+      "component_details": [
+        {
+          "name": "battery",
+          "role": "power source",
+          "description": "provides electrical energy to the circuit"
+        },
+        {
+          "name": "resistor",
+          "role": "current limiter",
+          "description": "limits and controls the flow of current"
+        },
+        {
+          "name": "transistor",
+          "role": "switch/amplifier",
+          "description": "amplifies signals or acts as an electronic switch"
+        },
+        {
+          "name": "motor",
+          "role": "mechanical output",
+          "description": "converts electrical energy into rotational motion"
+        }
+      ],
+      "flow_description": "Current flows from the battery \u2192 resistor \u2192 transistor \u2192 motor. This causes the motor to spin.",
+      "warnings": []
+    }
+  },
+  {
+    "label": "Arduino Sensor Circuit",
+    "input": {
+      "components": [
+        "power_supply",
+        "arduino",
+        "ldr",
+        "resistor",
+        "led"
+      ],
+      "connections": [
+        "power_supply -> arduino",
+        "ldr -> resistor -> arduino",
+        "arduino -> led"
+      ]
+    },
+    "output": {
+      "explanation": "This circuit uses a power supply (power source) that supplies regulated DC voltage to the circuit, an arduino (microcontroller) that runs code to control other components, a ldr (light sensor) that changes resistance based on light intensity, a resistor (current limiter) that limits and controls the flow of current, and a led (light emitter) that emits light when current flows through it. Current flows from the power supply \u2192 arduino. Current flows from the ldr \u2192 resistor \u2192 arduino. Current flows from the arduino \u2192 led. This causes the LED to emit light.",
+      "component_details": [
+        {
+          "name": "power_supply",
+          "role": "power source",
+          "description": "supplies regulated DC voltage to the circuit"
+        },
+        {
+          "name": "arduino",
+          "role": "microcontroller",
+          "description": "runs code to control other components"
+        },
+        {
+          "name": "ldr",
+          "role": "light sensor",
+          "description": "changes resistance based on light intensity"
+        },
+        {
+          "name": "resistor",
+          "role": "current limiter",
+          "description": "limits and controls the flow of current"
+        },
+        {
+          "name": "led",
+          "role": "light emitter",
+          "description": "emits light when current flows through it"
+        }
+      ],
+      "flow_description": "Current flows from the power supply \u2192 arduino. Current flows from the ldr \u2192 resistor \u2192 arduino. Current flows from the arduino \u2192 led. This causes the LED to emit light.",
+      "warnings": []
+    }
+  },
+  {
+    "label": "LED Without Resistor",
+    "input": {
+      "components": [
+        "battery",
+        "led"
+      ],
+      "connections": [
+        "battery -> led"
+      ]
+    },
+    "output": {
+      "explanation": "This circuit uses a battery (power source) that provides electrical energy to the circuit, and a led (light emitter) that emits light when current flows through it. Current flows from the battery \u2192 led. This causes the LED to emit light.",
+      "component_details": [
+        {
+          "name": "battery",
+          "role": "power source",
+          "description": "provides electrical energy to the circuit"
+        },
+        {
+          "name": "led",
+          "role": "light emitter",
+          "description": "emits light when current flows through it"
+        }
+      ],
+      "flow_description": "Current flows from the battery \u2192 led. This causes the LED to emit light.",
+      "warnings": [
+        "'led' detected without a current-limiting component. Add a resistor to prevent burnout."
+      ]
+    }
+  },
+  {
+    "label": "No Power Source",
+    "input": {
+      "components": [
+        "resistor",
+        "led"
+      ],
+      "connections": [
+        "resistor -> led"
+      ]
+    },
+    "output": {
+      "explanation": "This circuit uses a resistor (current limiter) that limits and controls the flow of current, and a led (light emitter) that emits light when current flows through it. Current flows from the resistor \u2192 led. This causes the LED to emit light.",
+      "component_details": [
+        {
+          "name": "resistor",
+          "role": "current limiter",
+          "description": "limits and controls the flow of current"
+        },
+        {
+          "name": "led",
+          "role": "light emitter",
+          "description": "emits light when current flows through it"
+        }
+      ],
+      "flow_description": "Current flows from the resistor \u2192 led. This causes the LED to emit light.",
+      "warnings": [
+        "No power source detected. The circuit cannot operate without one."
+      ]
+    }
+  }
+]
