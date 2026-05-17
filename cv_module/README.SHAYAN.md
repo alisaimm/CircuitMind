@@ -329,4 +329,10 @@ cv_module/
 
 **Questions? Contact Team Captain or post in project Discord!**
 
-Good luck, Shayan! This is the foundation of our entire pipeline 🚀
+Good luck, Shayan! This is the foundation of our entire pipeline 
+
+## 🧠 Model Weights Setup
+To run `cv_module.py`, you need our custom-trained YOLOv8 weights file:
+* **Download Link:** [Click Here to Download best.pt](https://drive.google.com/file/d/1fBduzh9M2_mVa7NirI0z9Ti9bsLrcEVS/view?usp=sharing)
+
+**Instructions:** Create a folder named `weights` inside this root directory and place the downloaded `best.pt` file inside it.
