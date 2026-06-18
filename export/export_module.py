@@ -1,212 +1,200 @@
+"""
+CircuitMind - Export Module
+export/export_module.py
+
+Converts circuit JSON into:
+  - SPICE netlist  (export_format="spice")
+  - SVG diagram    (export_format="svg")
+  - Gate JSON      (export_format="gate_json")
+"""
+
 import json
-import schemdraw
-import schemdraw.elements as elm
+import logging
 from datetime import datetime, timezone
 
+logger = logging.getLogger(__name__)
+
+# ── Component maps ─────────────────────────────────────────────────────────────
+
 COMPONENT_MAP = {
-    "battery": "V",
-    "resistor": "R",
-    "led": "D",
+    "battery":   "V",
+    "resistor":  "R",
+    "led":       "D",
     "capacitor": "C",
-    "switch": "S",
-    "motor": "M"
+    "switch":    "S",
+    "motor":     "M",
+    "inductor":  "L",
+    "transistor":"Q",
 }
 
 COMPONENT_VALUES = {
-    "battery": "9V",
-    "resistor": "330ohm",
-    "led": "LED",
+    "battery":   "9V",
+    "resistor":  "330ohm",
+    "led":       "LED",
     "capacitor": "100uF",
-    "switch": "SW",
-    "motor": "MOTOR"
+    "switch":    "SW",
+    "motor":     "MOTOR",
+    "inductor":  "1mH",
+    "transistor":"2N2222",
 }
 
-SVG_MAP = {
-    "battery": elm.Battery,
-    "resistor": elm.Resistor,
-    "led": elm.Diode,
-    "capacitor": elm.Capacitor,
-    "switch": elm.Switch,
-}
+VALID_FORMATS = {"spice", "svg", "gate_json"}
 
-def generate_spice(circuit_name, components):
-    lines = [circuit_name]
-    counters = {}
-    node = 1
+
+# ── SPICE generator ────────────────────────────────────────────────────────────
+
+def generate_spice(circuit_name: str, components: list) -> str:
+    lines    = [circuit_name]
+    counters: dict = {}
+    node     = 1
     for component in components:
         symbol = COMPONENT_MAP.get(component, "X")
         value  = COMPONENT_VALUES.get(component, "?")
         counters[symbol] = counters.get(symbol, 0) + 1
         name = f"{symbol}{counters[symbol]}"
-        lines.append(f"{name} {node} {node+1} {value}")
+        lines.append(f"{name} {node} {node + 1} {value}")
         node += 1
     lines.append(".end")
     return "\n".join(lines)
 
-def generate_svg(circuit_name, components, filename="circuit_diagram"):
+
+# ── SVG generator ──────────────────────────────────────────────────────────────
+
+def generate_svg(circuit_name: str, components: list, filename: str = "circuit_diagram") -> str:
+    """Returns the SVG file path. Requires schemdraw."""
+    try:
+        import schemdraw
+        import schemdraw.elements as elm
+    except ImportError:
+        raise RuntimeError("schemdraw is not installed. Run: pip install schemdraw")
+
+    SVG_MAP = {
+        "battery":   elm.Battery,
+        "resistor":  elm.Resistor,
+        "led":       elm.Diode,
+        "capacitor": elm.Capacitor,
+        "switch":    elm.Switch,
+    }
+
     with schemdraw.Drawing() as d:
         for component in components:
             element = SVG_MAP.get(component)
             if element:
                 d += element().right()
-        d.save(f"{filename}.svg")
-    return f"{filename}.svg"
+        svg_path = f"{filename}.svg"
+        d.save(svg_path)
 
-def generate_gate_json(circuit_name, components, connections):
-    gates = []
-    wires = []
-    x = 80
-    y = 100
-    y_gap = 220
+    return svg_path
 
-    input_counter = 0
+
+# ── Gate JSON generator ────────────────────────────────────────────────────────
+
+def generate_gate_json(circuit_name: str, components: list, connections: list) -> dict:
+    gates  = []
+    wires  = []
+    x, y   = 80, 100
+    input_counter  = 0
     output_counter = 0
 
-    # First component = INPUT, Last = OUTPUT, Middle = regular gate
     for i, component in enumerate(components):
         if i == 0:
-            gate_type = "INPUT"
-            input_values = [False]
-            has_output = True
-            num_inputs = 0
+            gate_type, num_inputs, has_output = "INPUT",  0, True
             input_counter += 1
-            label = component.upper()
         elif i == len(components) - 1:
-            gate_type = "OUTPUT"
-            input_values = []
-            has_output = False
-            num_inputs = 1
+            gate_type, num_inputs, has_output = "OUTPUT", 1, False
             output_counter += 1
-            label = component.upper()
         else:
-            gate_type = component.upper()
-            input_values = []
-            has_output = True
-            num_inputs = 1
-            label = component.upper()
+            gate_type, num_inputs, has_output = component.upper(), 1, True
 
         gates.append({
-            "id": i,
-            "type": gate_type,
-            "x": x + (i * 200),
-            "y": y,
-            "inputs": num_inputs,
-            "hasOutput": has_output,
-            "output": None,
-            "inputValues": input_values,
-            "label": label
+            "id":          i,
+            "type":        gate_type,
+            "x":           x + (i * 200),
+            "y":           y,
+            "inputs":      num_inputs,
+            "hasOutput":   has_output,
+            "output":      None,
+            "inputValues": [False] if gate_type == "INPUT" else [],
+            "label":       component.upper(),
         })
 
-    # Create wires from connections
-    for wire_id, conn in enumerate(connections):
-        parts = conn.split("->")
-        parts = [p.strip() for p in parts]
+    wire_id = 0
+    for conn in connections:
+        parts = [p.strip() for p in conn.split("->")]
         for j in range(len(parts) - 1):
-            from_component = parts[j]
-            to_component   = parts[j + 1]
-
-            from_id = next((g["id"] for g in gates if g["label"] == from_component.upper()), None)
-            to_id   = next((g["id"] for g in gates if g["label"] == to_component.upper()), None)
-
+            from_id = next((g["id"] for g in gates if g["label"] == parts[j].upper()), None)
+            to_id   = next((g["id"] for g in gates if g["label"] == parts[j + 1].upper()), None)
             if from_id is not None and to_id is not None:
-                wires.append({
-                    "id": wire_id + j,
-                    "fromId": from_id,
-                    "toId": to_id,
-                    "toIndex": 0
-                })
+                wires.append({"id": wire_id, "fromId": from_id, "toId": to_id, "toIndex": 0})
+                wire_id += 1
 
     return {
-        "gates": gates,
-        "wires": wires,
-        "gateIdCounter": len(gates),
-        "wireIdCounter": len(wires),
-        "inputCounter": input_counter,
-        "outputCounter": output_counter,
-        "exportedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        "gates":           gates,
+        "wires":           wires,
+        "gateIdCounter":   len(gates),
+        "wireIdCounter":   len(wires),
+        "inputCounter":    input_counter,
+        "outputCounter":   output_counter,
+        "exportedAt":      datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
     }
 
 
-def export_module(json_input, save_to_file=False, export_format="gate_json"):
+# ── Main Entry Point ───────────────────────────────────────────────────────────
 
-    # Check 1: Empty input
-    if not json_input or json_input.strip() == "":
+def export_module(json_input: str, export_format: str = "spice") -> dict:
+    """
+    Input:  JSON string with 'components' and 'connections'
+    Output: dict with export result or error
+    """
+    if not json_input or not json_input.strip():
         return {"status": "error", "message": "Input is empty."}
 
-    # Check 2: Valid JSON
+    if export_format not in VALID_FORMATS:
+        return {"status": "error", "message": f"Invalid format. Use one of: {', '.join(VALID_FORMATS)}."}
+
     try:
         data = json.loads(json_input)
-    except json.JSONDecodeError:
-        return {"status": "error", "message": "Invalid JSON input."}
+    except json.JSONDecodeError as e:
+        return {"status": "error", "message": f"Invalid JSON: {e}"}
 
-# Check 3: Required fields (Updated to make circuit_name optional)
     if "components" not in data or "connections" not in data:
-        return {"status": "error", "message": "Missing required fields (components/connections) in JSON."}
+        return {"status": "error", "message": "Missing required fields: 'components' and 'connections'."}
 
     name        = data.get("circuit_name", "CircuitMind_Generated_Circuit")
     components  = data["components"]
     connections = data["connections"]
 
+    logger.info(f"Exporting '{name}' as {export_format}")
+
     if export_format == "spice":
         spice = generate_spice(name, components)
-        output = {
-            "status": "success",
-            "format": "spice",
-            "circuit_name": name,
-            "components": ", ".join(components),
-            "connections": ", ".join(c.replace("->", "→") for c in connections),
-            "spice_netlist": spice
-        }
-        if save_to_file:
-            with open("circuit_output.json", "w") as f:
-                json.dump(output, f, indent=4)
-            with open("circuit_output.txt", "w", encoding="utf-8") as f:
-                f.write(f"Circuit Name : {name}\nComponents   : {output['components']}\nConnections  : {output['connections']}")
-            with open("circuit_output.sp", "w") as f:
-                f.write(spice)
-
-    elif export_format == "svg":
-        svg_file = generate_svg(name, components)
-        output = {
-            "status": "success",
-            "format": "svg",
-            "circuit_name": name,
-            "components": ", ".join(components),
-            "svg_file": svg_file
+        return {
+            "status":        "success",
+            "format":        "spice",
+            "circuit_name":  name,
+            "components":    ", ".join(components),
+            "connections":   ", ".join(c.replace("->", "→") for c in connections),
+            "spice_netlist": spice,
         }
 
-    elif export_format == "gate_json":
-        gate_data = generate_gate_json(name, components, connections)
-        output = {
-            "status": "success",
-            "format": "gate_json",
+    if export_format == "svg":
+        try:
+            svg_file = generate_svg(name, components)
+        except RuntimeError as e:
+            return {"status": "error", "message": str(e)}
+        return {
+            "status":       "success",
+            "format":       "svg",
             "circuit_name": name,
-            "gate_json": gate_data
+            "components":   ", ".join(components),
+            "svg_file":     svg_file,
         }
-        if save_to_file:
-            with open("circuit_gate.json", "w") as f:
-                json.dump(gate_data, f, indent=4)
 
-    else:
-        return {"status": "error", "message": "Invalid format. Use spice, svg or gate_json."}
-
-    return output
-
-
-if __name__ == "__main__":
-    valid = '''{"circuit_name": "LED Circuit", "components": ["battery", "resistor", "led"], "connections": ["battery -> resistor -> led"]}'''
-
-    print("SPICE Test:")
-    print(export_module(valid, save_to_file=True, export_format="spice"))
-
-    print("\nSVG Test:")
-    print(export_module(valid, save_to_file=True, export_format="svg"))
-
-    print("\nGate JSON Test:")
-    print(export_module(valid, save_to_file=True, export_format="gate_json"))
-
-    print("\nEmpty Test:")
-    print(export_module(""))
-
-    print("\nInvalid Test:")
-    print(export_module("not json"))
+    # gate_json
+    gate_data = generate_gate_json(name, components, connections)
+    return {
+        "status":       "success",
+        "format":       "gate_json",
+        "circuit_name": name,
+        "gate_json":    gate_data,
+    }

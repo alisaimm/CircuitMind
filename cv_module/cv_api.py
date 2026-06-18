@@ -1,132 +1,126 @@
 """
-Computer Vision Module - API Interface
-Author: SHAYAN HAIDER (CV Module Lead)
-Aligned and Optimized by Team Lead
+CircuitMind - Computer Vision Module API
+cv_module/cv_api.py
 
-This FastAPI application exposes the CV pipeline to the team
-Other modules can call this to get circuit JSON from images
+Exposes the YOLO-based CV pipeline via FastAPI routes.
+Mount this router into the main api/app.py for a unified service,
+or run standalone for testing.
 """
+
+import os
+import logging
+import tempfile
+from pathlib import Path
 
 from fastapi import FastAPI, APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
-import tempfile
-import os
-from pathlib import Path
-import sys
-
-# Add parent directory to path for imports
-sys.path.append(str(Path(__file__).parent.parent))
 
 from cv_module.topology_extraction import image_to_circuit_json
 
-# Initialize the core FastAPI app instance that test_cv_module.py expects!
-app = FastAPI(
-    title="CircuitMind AI - CV Module Gateway",
-    description="FastAPI instance hosting the YOLO schematic object detector",
-    version="1.0.0"
-)
+logger = logging.getLogger(__name__)
 
-router = APIRouter()
+# ── Model path resolution ──────────────────────────────────────────────────────
+_MODEL_DIR   = Path(__file__).parent / "models"
+MODEL_PATH   = str(_MODEL_DIR / "best.pt")
+ACTIVE_MODEL = MODEL_PATH if os.path.exists(MODEL_PATH) else "yolov8n.pt"
 
-# Path to trained YOLO model
-MODEL_PATH = "./cv_module/models/best.pt"
-
-# Framework safe check: Use baseline weight fallback if best.pt is not yet trained
-ACTIVE_MODEL_PATH = MODEL_PATH if os.path.exists(MODEL_PATH) else "yolov8n.pt"
+# ── Router (attach to main app) ────────────────────────────────────────────────
+router = APIRouter(prefix="/cv", tags=["computer-vision"])
 
 
-@router.post("/cv/image-to-circuit")
+@router.get("/status")
+async def cv_status():
+    """Health check for the CV module."""
+    model_ready = os.path.exists(MODEL_PATH)
+    return {
+        "module":           "Computer Vision",
+        "status":           "ready" if model_ready else "running_on_fallback_weights",
+        "model_path":       MODEL_PATH,
+        "model_exists":     model_ready,
+        "active_weights":   ACTIVE_MODEL,
+        "supported_formats": ["PNG", "JPG", "JPEG"],
+        "capabilities": [
+            "Component detection (YOLOv8)",
+            "Topology extraction",
+            "Connection inference via wire tracing",
+            "Circuit JSON generation",
+        ],
+    }
+
+
+@router.post("/image-to-circuit")
 async def image_to_circuit(
     image: UploadFile = File(..., description="Circuit schematic image (PNG/JPG)")
 ):
     """
-    🎯 PRIMARY CV ENDPOINT
-    Converts uploaded circuit image to structured JSON
+    Upload a circuit image and receive structured circuit JSON.
+    Uses YOLOv8 for component detection + OpenCV for wire tracing.
     """
-    if not image.content_type.startswith('image/'):
-        raise HTTPException(status_code=400, detail="File must be an image (PNG/JPG)")
-    
+    if not image.content_type or not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image (PNG/JPG/JPEG).")
+
+    tmp_path = None
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
-            contents = await image.read()
-            tmp_file.write(contents)
-            tmp_path = tmp_file.name
-        
+        suffix = Path(image.filename or "upload").suffix or ".png"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(await image.read())
+            tmp_path = tmp.name
+
         circuit_json = image_to_circuit_json(
             image_path=tmp_path,
-            model_path=ACTIVE_MODEL_PATH
+            model_path=ACTIVE_MODEL,
         )
-        
-        os.unlink(tmp_path)
-        
+
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
-                "message": f"Circuit extracted using {'Custom Weights' if ACTIVE_MODEL_PATH == MODEL_PATH else 'Cloud Fallback Baseline'}",
-                "data": circuit_json
-            }
+                "model_used": "custom" if ACTIVE_MODEL == MODEL_PATH else "fallback_baseline",
+                "data": circuit_json,
+            },
         )
-    
+
     except Exception as e:
-        if 'tmp_path' in locals():
+        logger.error(f"CV processing failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error processing image: {e}")
+
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
-        raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
 
 
-@router.get("/cv/status")
-async def cv_module_status():
-    """Check CV module health and model status"""
-    model_exists = os.path.exists(MODEL_PATH)
-    return {
-        "module": "Computer Vision",
-        "status": "ready" if model_exists else "running_on_fallback_weights",
-        "model_path": MODEL_PATH,
-        "model_exists": model_exists,
-        "active_weights": ACTIVE_MODEL_PATH,
-        "supported_formats": ["PNG", "JPG", "JPEG"],
-        "capabilities": [
-            "Component detection (YOLO)",
-            "Topology extraction",
-            "Connection inference",
-            "Circuit JSON generation"
-        ]
-    }
-
-
-@router.post("/cv/batch-process")
-async def batch_process_images(
+@router.post("/batch-process")
+async def batch_process(
     images: list[UploadFile] = File(..., description="Multiple circuit images")
 ):
-    """Process multiple circuit images in batch"""
+    """Process multiple circuit images and return results for each."""
     results = []
     for image in images:
+        tmp_path = None
         try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
-                contents = await image.read()
-                tmp_file.write(contents)
-                tmp_path = tmp_file.name
-            
-            circuit_json = image_to_circuit_json(tmp_path, ACTIVE_MODEL_PATH)
-            results.append({
-                "filename": image.filename,
-                "success": True,
-                "circuit_data": circuit_json
-            })
-            os.unlink(tmp_path)
+            suffix = Path(image.filename or "upload").suffix or ".png"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(await image.read())
+                tmp_path = tmp.name
+
+            circuit_json = image_to_circuit_json(tmp_path, ACTIVE_MODEL)
+            results.append({"filename": image.filename, "success": True, "circuit_data": circuit_json})
+
         except Exception as e:
-            results.append({
-                "filename": image.filename,
-                "success": False,
-                "error": str(e)
-            })
-    
+            results.append({"filename": image.filename, "success": False, "error": str(e)})
+
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
     return {
-        "total_images": len(images),
-        "successful": sum(1 for r in results if r['success']),
-        "failed": sum(1 for r in results if not r['success']),
-        "results": results
+        "total":      len(results),
+        "successful": sum(1 for r in results if r["success"]),
+        "failed":     sum(1 for r in results if not r["success"]),
+        "results":    results,
     }
 
-# Register the router routes cleanly into the main app instance
+
+# ── Standalone app (for isolated testing) ─────────────────────────────────────
+app = FastAPI(title="CircuitMind CV Module", version="1.0.0")
 app.include_router(router)
