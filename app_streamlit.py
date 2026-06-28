@@ -166,7 +166,7 @@ with tab5:
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
 
-        api_key = "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"
+        api_key = api_key = os.environ.get("GROQ_API_KEY")
         if not api_key:
             response = "⚠️ GROQ_API_KEY not set. Please add it to your .env file."
         else:
