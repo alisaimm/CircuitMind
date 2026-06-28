@@ -5,6 +5,8 @@ app_streamlit.py
 
 import sys
 import os
+from dotenv import load_dotenv
+load_dotenv()
 import json
 
 import streamlit as st
@@ -164,7 +166,7 @@ with tab5:
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
 
-        api_key = os.environ.get("GROQ_API_KEY")
+        api_key = api_key = os.environ.get("GROQ_API_KEY")
         if not api_key:
             response = "⚠️ GROQ_API_KEY not set. Please add it to your .env file."
         else:
