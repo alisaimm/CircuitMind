@@ -147,11 +147,12 @@ def check_ground_present(components: list, connections: list) -> str | None:
 
 def diagnose_circuit(circuit_json: dict[str, Any]) -> dict[str, Any]:
     """
-    Input:  circuit JSON with 'components' and 'connections' lists
-    Output: { "passed": bool, "issues": [...] }
+    Input:  circuit JSON with 'circuit_name', 'components', and 'connections' lists
+    Output: { "circuit_name": str, "issues": [...], "passed": bool }
     """
-    components  = [_normalize(c) for c in circuit_json.get("components", [])]
-    connections = circuit_json.get("connections", [])
+    circuit_name = circuit_json.get("circuit_name", "")
+    components   = [_normalize(c) for c in circuit_json.get("components", [])]
+    connections  = circuit_json.get("connections", [])
 
     issues: list[str] = []
 
@@ -171,6 +172,7 @@ def diagnose_circuit(circuit_json: dict[str, Any]) -> dict[str, Any]:
         issues.append(warn)
 
     return {
-        "passed": len(issues) == 0,
-        "issues": issues,
+        "circuit_name": circuit_name,
+        "issues":       issues,
+        "passed":       len(issues) == 0,
     }
