@@ -54,6 +54,18 @@ with tab1:
                 for c in result.get("connections", []):
                     st.markdown(f"- {c}")
             st.caption(f"Source: {result.get('source', '')} | Confidence: {result.get('confidence', '')}")
+
+            # Display SVG inline
+            svg_res = export_module(json.dumps(result), export_format="svg")
+            if svg_res.get("status") == "success" and "svg_markup" in svg_res:
+                st.markdown("**Schematic Diagram:**")
+                b64 = base64.b64encode(svg_res["svg_markup"].encode()).decode()
+                st.markdown(
+                    f'<img src="data:image/svg+xml;base64,{b64}" '
+                    f'style="max-width:400px;width:100%;background:white;padding:16px;border-radius:8px;margin-bottom:16px;">',
+                    unsafe_allow_html=True,
+                )
+
             st.markdown("**Circuit JSON:**")
             st.code(json.dumps(result, indent=2), language="json")
 
@@ -139,7 +151,7 @@ with tab4:
                 b64 = base64.b64encode(result["svg_markup"].encode()).decode()
                 st.markdown(
                     f'<img src="data:image/svg+xml;base64,{b64}" '
-                    f'style="width:100%;background:white;padding:16px;border-radius:8px;">',
+                    f'style="max-width:400px;width:100%;background:white;padding:16px;border-radius:8px;margin-bottom:16px;">',
                     unsafe_allow_html=True,
                 )
                 st.download_button(
