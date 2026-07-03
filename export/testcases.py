@@ -20,9 +20,9 @@ invalid = 'not json at all'
 results = []
 
 for test in [led, motor, fan, empty, invalid]:
-    result = export_module(test, save_to_file=False)
+    result = export_module(test)
     results.append(result)
-    print(result)
+    print(json.dumps(result, ensure_ascii=True, indent=2))
 
 #Save results to test_results.json
 with open("test_results.json", "w") as f:
