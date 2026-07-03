@@ -8,6 +8,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 import json
+import base64
 
 import streamlit as st
 
@@ -53,6 +54,18 @@ with tab1:
                 for c in result.get("connections", []):
                     st.markdown(f"- {c}")
             st.caption(f"Source: {result.get('source', '')} | Confidence: {result.get('confidence', '')}")
+
+            # Display SVG inline
+            svg_res = export_module(json.dumps(result), export_format="svg")
+            if svg_res.get("status") == "success" and "svg_markup" in svg_res:
+                st.markdown("**Schematic Diagram:**")
+                b64 = base64.b64encode(svg_res["svg_markup"].encode()).decode()
+                st.markdown(
+                    f'<img src="data:image/svg+xml;base64,{b64}" '
+                    f'style="max-width:400px;width:100%;background:white;padding:16px;border-radius:8px;margin-bottom:16px;">',
+                    unsafe_allow_html=True,
+                )
+
             st.markdown("**Circuit JSON:**")
             st.code(json.dumps(result, indent=2), language="json")
 
@@ -114,31 +127,39 @@ with tab4:
             if isinstance(data, dict) and "circuit_json" in data:
                 data = data["circuit_json"]
             result = export_module(json.dumps(data), export_format=fmt)
-            if result.get("status") == "error":
-                st.error(result["message"])
-            else:
-                st.json(result)
-                if fmt == "spice" and "spice_netlist" in result:
-                    st.download_button(
-                        label="⬇️ Download SPICE File",
-                        data=result["spice_netlist"],
-                        file_name="circuit.sp",
-                        mime="text/plain",
-                    )
-                elif fmt == "svg" and "svg_file" in result:
-                    svg_path = result["svg_file"]
-                    if os.path.exists(svg_path):
-                        with open(svg_path, "rb") as f:
-                            st.download_button(
-                                label="⬇️ Download SVG File",
-                                data=f,
-                                file_name=os.path.basename(svg_path),
-                                mime="image/svg+xml",
-                            )
-                    else:
-                        st.info("SVG generated. Check your working directory.")
+            st.session_state["export_result"] = result
+            st.session_state["export_format"] = fmt
         except json.JSONDecodeError as e:
-            st.error(f"Invalid JSON: {e}")
+            st.session_state["export_result"] = {"status": "error", "message": f"Invalid JSON: {e}"}
+
+    # Display persisted export result
+    if "export_result" in st.session_state:
+        result = st.session_state["export_result"]
+        fmt_used = st.session_state.get("export_format", "spice")
+        if result.get("status") == "error":
+            st.error(result["message"])
+        else:
+            st.json(result)
+            if fmt_used == "spice" and "spice_netlist" in result:
+                st.download_button(
+                    label="⬇️ Download SPICE File",
+                    data=result["spice_netlist"],
+                    file_name="circuit.sp",
+                    mime="text/plain",
+                )
+            elif fmt_used == "svg" and "svg_markup" in result:
+                b64 = base64.b64encode(result["svg_markup"].encode()).decode()
+                st.markdown(
+                    f'<img src="data:image/svg+xml;base64,{b64}" '
+                    f'style="max-width:400px;width:100%;background:white;padding:16px;border-radius:8px;margin-bottom:16px;">',
+                    unsafe_allow_html=True,
+                )
+                st.download_button(
+                    label="⬇️ Download SVG File",
+                    data=result["svg_markup"],
+                    file_name=f"{result.get('circuit_name', 'circuit').replace(' ', '_')}.svg",
+                    mime="image/svg+xml",
+                )
 
 # ── TAB 5: CHATBOT ─────────────────────────────────────────────────────────────
 with tab5:

@@ -46,22 +46,32 @@ VALID_FORMATS = {"spice", "svg", "gate_json"}
 def generate_spice(circuit_name: str, components: list) -> str:
     lines    = [circuit_name]
     counters: dict = {}
-    node     = 1
-    for component in components:
+    
+    comps = [c for c in components if c.lower() not in ("ground", "gnd")]
+    
+    for i, component in enumerate(comps):
         symbol = COMPONENT_MAP.get(component, "X")
         value  = COMPONENT_VALUES.get(component, "?")
         counters[symbol] = counters.get(symbol, 0) + 1
         name = f"{symbol}{counters[symbol]}"
-        lines.append(f"{name} {node} {node + 1} {value}")
-        node += 1
+        
+        if i == 0:
+            n1, n2 = 1, 0
+        elif i == len(comps) - 1:
+            n1, n2 = i, 0
+        else:
+            n1, n2 = i, i + 1
+            
+        lines.append(f"{name} {n1} {n2} {value}")
+        
     lines.append(".end")
     return "\n".join(lines)
 
 
 # ── SVG generator ──────────────────────────────────────────────────────────────
 
-def generate_svg(circuit_name: str, components: list, filename: str = "circuit_diagram") -> str:
-    """Returns the SVG file path. Requires schemdraw."""
+def generate_svg(circuit_name: str, components: list) -> str:
+    """Generate an SVG circuit schematic and return SVG markup string."""
     try:
         import schemdraw
         import schemdraw.elements as elm
@@ -69,22 +79,60 @@ def generate_svg(circuit_name: str, components: list, filename: str = "circuit_d
         raise RuntimeError("schemdraw is not installed. Run: pip install schemdraw")
 
     SVG_MAP = {
-        "battery":   elm.Battery,
-        "resistor":  elm.Resistor,
-        "led":       elm.Diode,
-        "capacitor": elm.Capacitor,
-        "switch":    elm.Switch,
+        # Power sources
+        "battery":       elm.Battery,
+        "power_supply":  elm.SourceV,
+        "solar_cell":    elm.SourceV,
+        "solar_panel":   elm.SourceV,
+        # Passive
+        "resistor":      elm.Resistor,
+        "capacitor":     elm.Capacitor,
+        "inductor":      elm.Inductor,
+        "potentiometer": elm.Potentiometer,
+        # Diodes
+        "diode":         elm.Diode,
+        "led":           elm.LED2,
+        "zener_diode":   elm.Zener,
+        # Switches
+        "switch":        elm.Switch,
+        "button":        elm.Button,
+        # Output devices
+        "motor":         elm.Motor,
+        "dc_motor":      elm.Motor,
+        "dc_fan":        elm.Motor,
+        "buzzer":        elm.Speaker,
+        "speaker":       elm.Speaker,
+        # Protection
+        "fuse":          elm.Fuse,
     }
 
-    with schemdraw.Drawing() as d:
-        for component in components:
-            element = SVG_MAP.get(component)
-            if element:
-                d += element().right()
-        svg_path = f"{filename}.svg"
-        d.save(svg_path)
+    def _norm(name: str) -> str:
+        return name.strip().lower().replace(" ", "_").replace("-", "_")
 
-    return svg_path
+    normalized = [_norm(c) for c in components]
+    drawable   = [c for c in normalized if c != "ground"]
+
+    if not drawable:
+        raise RuntimeError("No drawable components found in the circuit.")
+
+    d = schemdraw.Drawing(show=False)
+    d.config(fontsize=12)
+
+    first_elem = None
+    for i, comp in enumerate(drawable):
+        label    = comp.replace("_", " ").title()
+        elem_cls = SVG_MAP.get(comp, elm.RBox)
+        elem     = d.add(elem_cls().right().label(label, loc="top"))
+        if i == 0:
+            first_elem = elem
+
+    # Close the circuit with a return path to form a loop
+    if first_elem and len(drawable) > 1:
+        d.add(elm.Line().down().length(d.unit * 0.6))
+        d.add(elm.Line().left().tox(first_elem.start))
+        d.add(elm.Line().up().toy(first_elem.start))
+
+    return d.get_imagedata("svg").decode("utf-8")
 
 
 # ── Gate JSON generator ────────────────────────────────────────────────────────
@@ -179,7 +227,7 @@ def export_module(json_input: str, export_format: str = "spice") -> dict:
 
     if export_format == "svg":
         try:
-            svg_file = generate_svg(name, components)
+            svg_markup = generate_svg(name, components)
         except RuntimeError as e:
             return {"status": "error", "message": str(e)}
         return {
@@ -187,7 +235,8 @@ def export_module(json_input: str, export_format: str = "spice") -> dict:
             "format":       "svg",
             "circuit_name": name,
             "components":   ", ".join(components),
-            "svg_file":     svg_file,
+            "connections":  ", ".join(c.replace("->", "→") for c in connections),
+            "svg_markup":   svg_markup,
         }
 
     # gate_json

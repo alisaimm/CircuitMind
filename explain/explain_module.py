@@ -39,6 +39,7 @@ COMPONENT_DB: dict[str, dict] = {
     "555_timer":         {"role": "timer IC",            "description": "generates timing pulses and oscillations"},
     "arduino":           {"role": "microcontroller",    "description": "runs code to control other components"},
     "microcontroller":   {"role": "microcontroller",    "description": "processes data and controls the circuit"},
+    "charge_controller": {"role": "charge regulator",    "description": "regulates charging voltage and current to protect the battery"},
 
     # Output devices
     "buzzer":    {"role": "audio output",    "description": "produces sound when current flows through it"},
@@ -79,22 +80,44 @@ def _normalize(name: str) -> str:
     return name.strip().lower().replace(" ", "_").replace("-", "_")
 
 
+_ALIASES = {
+    "solar_panel": "solar_cell",
+}
+
+
+def _fuzzy_match(name: str) -> str:
+    """Resolve a component name to its canonical COMPONENT_DB key."""
+    if name in COMPONENT_DB:
+        return name
+    if name in _ALIASES:
+        return _ALIASES[name]
+    # Substring: find canonical names contained within the input
+    matches = [canon for canon in COMPONENT_DB if canon in name]
+    if matches:
+        return max(matches, key=len)  # longest match = most specific
+    return name
+
+
 def _parse_flow(connections: list[str]) -> str:
     parts = []
     for conn in connections:
         sep = "->" if "->" in conn else "--"
         nodes = [n.strip() for n in conn.split(sep)]
-        arrow_chain = " → ".join(nodes)
-        parts.append(f"Current flows from the {arrow_chain}.")
+        
+        if len(nodes) == 1:
+            parts.append(f"The {nodes[0]} stands alone with no connections.")
+        else:
+            arrow_chain = " → ".join(nodes)
+            parts.append(f"Current flows from the {arrow_chain}.")
 
-        # Add effect note
-        last = _normalize(nodes[-1]) if nodes else ""
-        if last in LED_OUTPUTS:
-            parts[-1] += " This causes the LED to emit light."
-        elif last in MOTOR_OUTPUTS:
-            parts[-1] += " This causes the motor to spin."
-        elif last in BUZZER_OUTPUTS:
-            parts[-1] += " This causes the buzzer to produce sound."
+            # Add effect note
+            last = _normalize(nodes[-1]) if nodes else ""
+            if last in LED_OUTPUTS:
+                parts[-1] += " This causes the LED to emit light."
+            elif last in MOTOR_OUTPUTS:
+                parts[-1] += " This causes the motor to spin."
+            elif last in BUZZER_OUTPUTS:
+                parts[-1] += " This causes the buzzer to produce sound."
 
     return " ".join(parts)
 
@@ -122,7 +145,7 @@ def explain_circuit(circuit_json: dict[str, Any]) -> dict[str, Any]:
     raw_components = circuit_json.get("components", [])
     connections    = circuit_json.get("connections", [])
 
-    components        = [_normalize(c) for c in raw_components]
+    components        = [_fuzzy_match(_normalize(c)) for c in raw_components]
     component_details = []
     unknown_components: list[str] = []
 
