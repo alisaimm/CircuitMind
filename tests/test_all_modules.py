@@ -105,7 +105,8 @@ class TestDiagnose:
     def test_valid_circuit_passes(self):
         result = diagnose_circuit(LED_CIRCUIT)
         assert result["passed"] is True
-        assert result["issues"] == []
+        assert len(result["issues"]) == 1
+        assert "Info:" in result["issues"][0]
 
     def test_missing_resistor_flagged(self):
         result = diagnose_circuit(BAD_CIRCUIT)

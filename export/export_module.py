@@ -46,14 +46,24 @@ VALID_FORMATS = {"spice", "svg", "gate_json"}
 def generate_spice(circuit_name: str, components: list) -> str:
     lines    = [circuit_name]
     counters: dict = {}
-    node     = 1
-    for component in components:
+    
+    comps = [c for c in components if c.lower() not in ("ground", "gnd")]
+    
+    for i, component in enumerate(comps):
         symbol = COMPONENT_MAP.get(component, "X")
         value  = COMPONENT_VALUES.get(component, "?")
         counters[symbol] = counters.get(symbol, 0) + 1
         name = f"{symbol}{counters[symbol]}"
-        lines.append(f"{name} {node} {node + 1} {value}")
-        node += 1
+        
+        if i == 0:
+            n1, n2 = 1, 0
+        elif i == len(comps) - 1:
+            n1, n2 = i, 0
+        else:
+            n1, n2 = i, i + 1
+            
+        lines.append(f"{name} {n1} {n2} {value}")
+        
     lines.append(".end")
     return "\n".join(lines)
 

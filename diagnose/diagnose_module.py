@@ -26,6 +26,27 @@ def _normalize(name: str) -> str:
     return name.strip().lower().replace(" ", "_").replace("-", "_")
 
 
+KNOWN_COMPONENTS = POWER_SOURCES | NEEDS_CURRENT_LIMIT | CURRENT_LIMITERS | {
+    "capacitor", "inductor", "motor", "dc_motor", "speaker", "buzzer", "switch",
+    "relay", "transformer", "fuse", "arduino", "microcontroller", "555_timer", "charge_controller"
+}
+
+_ALIASES = {
+    "solar_panel": "solar_cell",
+}
+
+
+def _fuzzy_match(name: str) -> str:
+    if name in KNOWN_COMPONENTS:
+        return name
+    if name in _ALIASES:
+        return _ALIASES[name]
+    matches = [canon for canon in KNOWN_COMPONENTS if canon in name]
+    if matches:
+        return max(matches, key=len)
+    return name
+
+
 def _parse_connections(connections: list) -> list:
     parsed = []
     for conn in connections:
@@ -85,7 +106,10 @@ def check_short_circuit(connections: list) -> list:
     graph: dict = {}
     for path in _parse_connections(connections):
         for i in range(len(path) - 1):
-            graph.setdefault(path[i], []).append(path[i + 1])
+            n1 = _normalize(path[i])
+            n2 = _normalize(path[i + 1])
+            graph.setdefault(n1, []).append(n2)
+            graph.setdefault(n2, []).append(n1)
 
     for start_node in list(graph.keys()):
         if not _is_power(start_node):
@@ -94,10 +118,16 @@ def check_short_circuit(connections: list) -> list:
         visited: set = set()
         while queue:
             current, path_so_far, passed_load = queue.pop(0)
-            if current in visited:
+            
+            state = (current, passed_load)
+            if state in visited:
                 continue
-            visited.add(current)
+            visited.add(state)
+            
             for neighbor in graph.get(current, []):
+                if neighbor in path_so_far:
+                    continue
+                
                 if _is_ground(neighbor):
                     if not passed_load:
                         short_path = " -> ".join(path_so_far + [neighbor])
@@ -116,6 +146,8 @@ def check_floating_components(components: list, connections: list) -> list:
     all_conn_text = " ".join(connections).lower()
     for comp in components:
         if comp in POWER_SOURCES:
+            continue
+        if _normalize(comp) in GROUND_KEYWORDS or "ground" in comp.lower() or "gnd" in comp.lower():
             continue
         if comp not in all_conn_text and comp.replace("_", " ") not in all_conn_text:
             warnings.append(
@@ -151,7 +183,7 @@ def diagnose_circuit(circuit_json: dict[str, Any]) -> dict[str, Any]:
     Output: { "circuit_name": str, "issues": [...], "passed": bool }
     """
     circuit_name = circuit_json.get("circuit_name", "")
-    components   = [_normalize(c) for c in circuit_json.get("components", [])]
+    components   = [_fuzzy_match(_normalize(c)) for c in circuit_json.get("components", [])]
     connections  = circuit_json.get("connections", [])
 
     issues: list[str] = []
@@ -171,7 +203,10 @@ def diagnose_circuit(circuit_json: dict[str, Any]) -> dict[str, Any]:
     if (warn := check_ground_present(components, connections)):
         issues.append(warn)
 
+    passed = not any(msg.startswith(("Error", "Warning")) for msg in issues)
+
     return {
-        "passed": not any(i.startswith("Error") or i.startswith("Warning") for i in issues),
+        "circuit_name": circuit_name,
+        "passed": passed,
         "issues": issues,
     }

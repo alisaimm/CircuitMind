@@ -43,11 +43,11 @@ _RULES = [
     (["led", "light"],                         "LED Circuit",              ["battery", "resistor", "led"],                          ["battery -> resistor -> led"],                        "Basic LED circuit with current-limiting resistor"),
     (["motor"],                                "Motor Circuit",            ["battery", "switch", "dc_motor"],                       ["battery -> switch -> dc_motor"],                     "Basic DC motor circuit with on/off switch"),
     (["buzzer"],                               "Buzzer Circuit",           ["battery", "resistor", "buzzer"],                       ["battery -> resistor -> buzzer"],                     "Buzzer circuit with resistor for sound output"),
-    (["fan"],                                  "Fan Circuit",              ["battery", "switch", "capacitor", "dc_fan"],            ["battery -> switch -> capacitor -> dc_fan"],          "Fan circuit with capacitor for smooth startup"),
+    (["fan"],                                  "Fan Circuit",              ["battery", "switch", "capacitor", "dc_motor"],          ["battery -> switch -> capacitor -> dc_motor"],        "Fan circuit with capacitor for smooth startup"),
     (["temperature", "sensor"],                "Temperature Sensor",       ["battery", "thermistor", "resistor", "microcontroller"],["battery -> thermistor -> resistor -> microcontroller"],"Temperature sensing circuit using thermistor"),
-    (["solar"],                                "Solar Charging Circuit",   ["solar_panel", "diode", "charge_controller", "battery"],["solar_panel -> diode -> charge_controller -> battery"],"Solar panel battery charging circuit"),
+    (["solar"],                                "Solar Charging Circuit",   ["solar_cell", "diode", "charge_controller", "battery"],["solar_cell -> diode -> charge_controller -> battery"],"Solar panel battery charging circuit"),
     (["555", "timer"],                         "555 Timer Circuit",        ["battery", "555_timer", "resistor", "capacitor", "led"],["battery -> 555_timer -> resistor -> capacitor -> led"],"555 timer astable multivibrator"),
-    (["rc", "filter"],                         "RC Filter Circuit",        ["resistor", "capacitor"],                               ["input -> resistor -> capacitor -> ground"],           "RC low-pass filter circuit"),
+    (["rc", "filter"],                         "RC Filter Circuit",        ["power_supply", "resistor", "capacitor"],              ["power_supply -> resistor -> capacitor -> ground"],    "RC low-pass filter circuit"),
 ]
 
 def generate_with_rules(prompt: str) -> dict:
@@ -77,7 +77,14 @@ def generate_with_rules(prompt: str) -> dict:
 _SYSTEM_PROMPT = (
     "You are a circuit generator AI. "
     "Convert user requests into circuit JSON. "
-    "Reply ONLY with valid JSON — no explanation, no markdown, no code blocks."
+    "Reply ONLY with valid JSON — no explanation, no markdown, no code blocks.\n"
+    "IMPORTANT: Use ONLY these exact component names — no prefixes, values, or modifiers:\n"
+    "battery, power_supply, solar_cell, resistor, capacitor, inductor, potentiometer, "
+    "diode, led, zener_diode, transistor, npn_transistor, pnp_transistor, mosfet, "
+    "op_amp, 555_timer, arduino, microcontroller, "
+    "buzzer, motor, dc_motor, speaker, relay, display, lcd, "
+    "ldr, thermistor, photodiode, button, switch, sensor, "
+    "ground, fuse, transformer"
 )
 
 _USER_TEMPLATE = (
