@@ -139,7 +139,7 @@ def check_ground_present(components: list, connections: list) -> str | None:
     has_ground = any(kw in all_text for kw in GROUND_KEYWORDS)
     has_power  = any(c in POWER_SOURCES for c in components)
     if has_power and not has_ground:
-        return "Warning: No ground reference found. Add a ground connection for a complete circuit."
+        return "Info: No ground reference found. Consider adding a ground connection for a complete circuit."
     return None
 
 
@@ -172,7 +172,6 @@ def diagnose_circuit(circuit_json: dict[str, Any]) -> dict[str, Any]:
         issues.append(warn)
 
     return {
-        "circuit_name": circuit_name,
-        "issues":       issues,
-        "passed":       len(issues) == 0,
+        "passed": not any(i.startswith("Error") or i.startswith("Warning") for i in issues),
+        "issues": issues,
     }
