@@ -53,7 +53,8 @@ with tab1:
                 for c in result.get("connections", []):
                     st.markdown(f"- {c}")
             st.caption(f"Source: {result.get('source', '')} | Confidence: {result.get('confidence', '')}")
-            st.json(result)
+            st.markdown("**Circuit JSON:**")
+            st.code(json.dumps(result, indent=2), language="json")
 
 # ── TAB 2: EXPLAIN ─────────────────────────────────────────────────────────────
 with tab2:
