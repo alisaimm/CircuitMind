@@ -17,25 +17,95 @@ logger = logging.getLogger(__name__)
 # ── Component maps ─────────────────────────────────────────────────────────────
 
 COMPONENT_MAP = {
-    "battery":   "V",
-    "resistor":  "R",
-    "led":       "D",
-    "capacitor": "C",
-    "switch":    "S",
-    "motor":     "M",
-    "inductor":  "L",
-    "transistor":"Q",
+    # ── Existing entries (unchanged) ──────────────────────────────────────────
+    "battery":       "V",
+    "resistor":      "R",
+    "led":           "D",
+    "capacitor":     "C",
+    "switch":        "S",
+    "motor":         "M",
+    "inductor":      "L",
+    "transistor":    "Q",
+    # ── Added: power sources ──────────────────────────────────────────────────
+    "power_supply":  "V",  # voltage source, same symbol as battery
+    "solar_cell":    "V",  # modelled as a voltage source in SPICE
+    # ── Added: diodes ─────────────────────────────────────────────────────────
+    "diode":         "D",  # standard signal diode
+    "zener_diode":   "D",  # 5.1 V zener
+    "photodiode":    "D",  # common photodiode
+    # ── Added: transistors / FETs ─────────────────────────────────────────────
+    "npn_transistor": "Q", # same as generic transistor
+    "pnp_transistor": "Q", # common PNP
+    "mosfet":        "M",  # MOSFET symbol is M in SPICE
+    # ── Added: passive ────────────────────────────────────────────────────────
+    "potentiometer": "R",  # variable resistor → resistor symbol
+    "thermistor":    "R",  # modelled as resistor
+    "ldr":           "R",  # modelled as resistor
+    "fuse":          "R",  # modelled as a tiny resistor in SPICE
+    # ── Added: output / actuators ─────────────────────────────────────────────
+    "dc_motor":      "M",  # same as motor
+    "buzzer":        "X",  # no native SPICE symbol; use subcircuit
+    "speaker":       "X",  # same as buzzer
+    "relay":         "X",  # subcircuit, no native element
+    # ── Added: ICs / subcircuits ──────────────────────────────────────────────
+    "op_amp":            "X",  # subcircuit model
+    "555_timer":         "X",  # subcircuit model
+    "arduino":           "X",  # subcircuit
+    "microcontroller":   "X",  # subcircuit
+    "charge_controller": "X",  # subcircuit
+    # ── Added: sensors / input ────────────────────────────────────────────────
+    "button":        "S",  # same as switch
+    "sensor":        "X",  # generic subcircuit
+    # ── Added: display / misc ─────────────────────────────────────────────────
+    "display":       "X",  # subcircuit
+    "lcd":           "X",  # subcircuit
+    "transformer":   "X",  # subcircuit
 }
 
 COMPONENT_VALUES = {
-    "battery":   "9V",
-    "resistor":  "330ohm",
-    "led":       "LED",
-    "capacitor": "100uF",
-    "switch":    "SW",
-    "motor":     "MOTOR",
-    "inductor":  "1mH",
-    "transistor":"2N2222",
+    # ── Existing entries (unchanged) ──────────────────────────────────────────
+    "battery":       "9V",
+    "resistor":      "330ohm",
+    "led":           "LED",
+    "capacitor":     "100uF",
+    "switch":        "SW",
+    "motor":         "MOTOR",
+    "inductor":      "1mH",
+    "transistor":    "2N2222",
+    # ── Added: power sources ──────────────────────────────────────────────────
+    "power_supply":  "12V",
+    "solar_cell":    "5V",
+    # ── Added: diodes ─────────────────────────────────────────────────────────
+    "diode":         "1N4148",
+    "zener_diode":   "1N4733A",
+    "photodiode":    "BPW34",
+    # ── Added: transistors / FETs ─────────────────────────────────────────────
+    "npn_transistor": "2N2222",
+    "pnp_transistor": "2N2907",
+    "mosfet":        "IRF540N",
+    # ── Added: passive ────────────────────────────────────────────────────────
+    "potentiometer": "10kohm",
+    "thermistor":    "10kohm",
+    "ldr":           "10kohm",
+    "fuse":          "0.01ohm",
+    # ── Added: output / actuators ─────────────────────────────────────────────
+    "dc_motor":      "MOTOR",
+    "buzzer":        "BUZZER",
+    "speaker":       "SPEAKER",
+    "relay":         "RELAY",
+    # ── Added: ICs / subcircuits ──────────────────────────────────────────────
+    "op_amp":            "LM741",
+    "555_timer":         "NE555",
+    "arduino":           "ARDUINO",
+    "microcontroller":   "MCU",
+    "charge_controller": "CC",
+    # ── Added: sensors / input ────────────────────────────────────────────────
+    "button":        "SW",
+    "sensor":        "SENSOR",
+    # ── Added: display / misc ─────────────────────────────────────────────────
+    "display":       "DISPLAY",
+    "lcd":           "LCD",
+    "transformer":   "XFMR",
 }
 
 VALID_FORMATS = {"spice", "svg", "gate_json"}
@@ -83,7 +153,6 @@ def generate_svg(circuit_name: str, components: list) -> str:
         "battery":       elm.Battery,
         "power_supply":  elm.SourceV,
         "solar_cell":    elm.SourceV,
-        "solar_panel":   elm.SourceV,
         # Passive
         "resistor":      elm.Resistor,
         "capacitor":     elm.Capacitor,
@@ -99,7 +168,6 @@ def generate_svg(circuit_name: str, components: list) -> str:
         # Output devices
         "motor":         elm.Motor,
         "dc_motor":      elm.Motor,
-        "dc_fan":        elm.Motor,
         "buzzer":        elm.Speaker,
         "speaker":       elm.Speaker,
         # Protection
