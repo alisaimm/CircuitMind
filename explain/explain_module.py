@@ -171,11 +171,13 @@ def explain_circuit(circuit_json: dict[str, Any]) -> dict[str, Any]:
         parts = []
         for detail in component_details:
             parts.append(f"a {detail['name']} ({detail['role']}) that {detail['description']}")
-        explanation = "This circuit uses " + ", ".join(parts[:-1])
-        if len(parts) > 1:
-            explanation += f", and {parts[-1]}."
+
+        if len(parts) == 1:
+            explanation = "This circuit uses " + parts[0] + "."
+        elif len(parts) == 2:
+            explanation = "This circuit uses " + parts[0] + ", and " + parts[1] + "."
         else:
-            explanation += f"{parts[0]}."
+            explanation = "This circuit uses " + ", ".join(parts[:-1]) + ", and " + parts[-1] + "."
 
     flow_description = _parse_flow(connections) if connections else ""
 
