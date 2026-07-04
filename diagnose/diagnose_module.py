@@ -8,43 +8,24 @@ and returns a structured result with warnings and errors.
 
 from typing import Any
 
+from utils.component_resolver import (
+    POWER_SOURCES,
+    NEEDS_CURRENT_LIMIT,
+    CURRENT_LIMITERS,
+    KNOWN_COMPONENTS,
+    _normalize,
+    _fuzzy_match,
+)
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-POWER_SOURCES       = {"battery", "power_supply", "solar_cell"}
-NEEDS_CURRENT_LIMIT = {"led", "diode", "zener_diode"}
-CURRENT_LIMITERS    = {"resistor", "potentiometer", "mosfet", "transistor",
-                       "npn_transistor", "pnp_transistor"}
+
 POSITIVE_KEYWORDS   = {"+", "pos", "positive", "anode", "vcc", "v+", "plus"}
 GROUND_KEYWORDS     = {"ground", "gnd", "0v", "v-", "negative", "common"}
 WIRE_LABELS         = {"wire", "node", "net", "junction", "point", "trace"}
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
-
-def _normalize(name: str) -> str:
-    return name.strip().lower().replace(" ", "_").replace("-", "_")
-
-
-KNOWN_COMPONENTS = POWER_SOURCES | NEEDS_CURRENT_LIMIT | CURRENT_LIMITERS | {
-    "capacitor", "inductor", "motor", "dc_motor", "speaker", "buzzer", "switch",
-    "relay", "transformer", "fuse", "arduino", "microcontroller", "555_timer", "charge_controller"
-}
-
-_ALIASES = {
-    "solar_panel": "solar_cell",
-}
-
-
-def _fuzzy_match(name: str) -> str:
-    if name in KNOWN_COMPONENTS:
-        return name
-    if name in _ALIASES:
-        return _ALIASES[name]
-    matches = [canon for canon in KNOWN_COMPONENTS if canon in name]
-    if matches:
-        return max(matches, key=len)
-    return name
 
 
 def _parse_connections(connections: list) -> list:
