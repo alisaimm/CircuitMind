@@ -12,6 +12,7 @@ from utils.component_resolver import (
     POWER_SOURCES,
     NEEDS_CURRENT_LIMIT,
     CURRENT_LIMITERS,
+    LOAD_COMPONENTS,
     KNOWN_COMPONENTS,
     _normalize,
     _fuzzy_match,
@@ -79,10 +80,8 @@ def check_short_circuit(connections: list) -> list:
         return n in GROUND_KEYWORDS or n.startswith("gnd") or n.startswith("ground")
 
     def _is_load(node: str) -> bool:
-        n = _normalize(node)
-        if n in POWER_SOURCES or n in GROUND_KEYWORDS:
-            return False
-        return not any(n.startswith(label) for label in WIRE_LABELS)
+        """Return True only for components that act as electrical loads."""
+        return _normalize(node) in LOAD_COMPONENTS
 
     graph: dict = {}
     for path in _parse_connections(connections):
@@ -137,13 +136,42 @@ def check_floating_components(components: list, connections: list) -> list:
             )
     return warnings
 
-
 def check_capacitor_polarity(components: list, connections: list) -> str | None:
     if "capacitor" not in components:
         return None
-    all_conn_text = " ".join(connections).lower()
-    if not any(kw in all_conn_text for kw in POSITIVE_KEYWORDS):
-        return "Warning: Capacitor detected but polarity not specified. Ensure correct orientation for polarised capacitors."
+
+    capacitor_polarity = {
+        "positive": False,
+        "negative": False,
+    }
+
+    for path in _parse_connections(connections):
+        for node in path:
+            n = _normalize(node)
+
+            # Only inspect capacitor nodes
+            if "capacitor" not in n:
+                continue
+
+            if any(keyword in n for keyword in POSITIVE_KEYWORDS):
+                capacitor_polarity["positive"] = True
+
+            if (
+                "-" in n
+                or "negative" in n
+                or "neg" in n
+            ):
+                capacitor_polarity["negative"] = True
+
+    if not (
+        capacitor_polarity["positive"]
+        and capacitor_polarity["negative"]
+    ):
+        return (
+            "Warning: Capacitor detected but polarity not specified. "
+            "Ensure correct orientation for polarised capacitors."
+        )
+
     return None
 
 

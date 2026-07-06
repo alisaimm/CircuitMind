@@ -64,6 +64,32 @@ NEEDS_CURRENT_LIMIT = {"led", "diode", "zener_diode"}
 CURRENT_LIMITERS    = {"resistor", "potentiometer", "mosfet", "transistor",
                        "npn_transistor", "pnp_transistor"}
 
+# Components that act as electrical loads.
+# These interrupt a direct power-to-ground short circuit because they
+# consume or store electrical energy rather than acting as a wire.
+LOAD_COMPONENTS = {
+    "resistor",
+    "potentiometer",
+    "capacitor",
+    "inductor",
+    "led",
+    "diode",
+    "zener_diode",
+    "motor",
+    "dc_motor",
+    "speaker",
+    "buzzer",
+    "relay",
+    "display",
+    "lcd",
+    "transformer",
+    "op_amp",
+    "555_timer",
+    "arduino",
+    "microcontroller",
+    "charge_controller",
+}
+
 KNOWN_COMPONENTS = set(COMPONENT_DB.keys())
 
 def _normalize(name: str) -> str:
