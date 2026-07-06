@@ -128,6 +128,44 @@ class TestDiagnose:
         assert "passed" in result
         assert "issues" in result
         assert isinstance(result["issues"], list)
+    
+    def test_switch_short_detected(self):
+        circuit = {
+          "components": ["battery", "switch", "ground"],
+          "connections": ["battery -> switch -> ground"]
+        }
+
+        result = diagnose_circuit(circuit)
+
+        assert any("short circuit" in i.lower() for i in result["issues"])
+
+    def test_capacitor_without_polarity_warning(self):
+        circuit = {
+          "components": ["battery", "capacitor"],
+          "connections": [
+             "battery -> capacitor",
+             "capacitor -> ground",
+            ],
+        }
+
+        result = diagnose_circuit(circuit)
+
+        assert any("polarity" in i.lower() for i in result["issues"])
+
+
+    def test_led_polarity_does_not_count_for_capacitor(self):
+        circuit = {
+          "components": ["battery", "capacitor", "led"],
+          "connections": [
+             "battery -> led+",
+             "led -> capacitor",
+             "capacitor -> ground",
+           ],
+        }
+
+        result = diagnose_circuit(circuit)
+
+        assert any("polarity" in i.lower() for i in result["issues"])
 
 
 # ── Export ─────────────────────────────────────────────────────────────────────
