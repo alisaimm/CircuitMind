@@ -119,6 +119,9 @@ def generate_spice(circuit_name: str, components: list) -> str:
     
     comps = [c for c in components if c.lower() not in ("ground", "gnd")]
     
+    # Track defined subcircuits by subcircuit name: value -> (node1, node2)
+    defined_subckts = {}
+    
     for i, component in enumerate(comps):
         symbol = COMPONENT_MAP.get(component, "X")
         value  = COMPONENT_VALUES.get(component, "?")
@@ -133,6 +136,15 @@ def generate_spice(circuit_name: str, components: list) -> str:
             n1, n2 = i, i + 1
             
         lines.append(f"{name} {n1} {n2} {value}")
+        
+        if symbol == "X":
+            if value not in defined_subckts:
+                defined_subckts[value] = (n1, n2)
+                
+    for subckt_name, (node_a, node_b) in defined_subckts.items():
+        lines.append(f".subckt {subckt_name} {node_a} {node_b}")
+        lines.append(f"Rdummy {node_a} {node_b} 10Meg")
+        lines.append(f".ends {subckt_name}")
         
     lines.append(".end")
     return "\n".join(lines)

@@ -180,6 +180,21 @@ class TestExport:
         assert "spice_netlist" in result
         assert ".end" in result["spice_netlist"]
 
+    def test_spice_subcircuit_export(self):
+        solar_circuit = {
+            "circuit_name": "Solar Circuit",
+            "components":   ["solar_cell", "diode", "charge_controller", "battery"],
+            "connections":  ["solar_cell -> diode -> charge_controller -> battery"],
+        }
+        result = export_module(self._json(solar_circuit), export_format="spice")
+        assert result["status"] == "success"
+        netlist = result["spice_netlist"]
+        assert "X1 2 3 CC" in netlist
+        assert ".subckt CC 2 3" in netlist
+        assert "Rdummy 2 3 10Meg" in netlist
+        assert ".ends CC" in netlist
+        assert ".end" in netlist
+
     def test_gate_json_export(self):
         result = export_module(self._json(LED_CIRCUIT), export_format="gate_json")
         assert result["status"] == "success"
