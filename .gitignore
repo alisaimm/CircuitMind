@@ -1,50 +1,69 @@
-# Secrets
+# ─────────────────────────────────────────────
+# Secrets (NEVER COMMIT)
+# ─────────────────────────────────────────────
 .env
+*.env
 
+# ─────────────────────────────────────────────
 # Python
+# ─────────────────────────────────────────────
 __pycache__/
 */__pycache__/
 **/__pycache__/
+
 *.pyc
 *.pyo
 *.pyd
+
 .venv/
 venv/
+
 *.egg-info/
 dist/
 build/
 
-# Generated export artefacts
+# ─────────────────────────────────────────────
+# IDE / Editors
+# ─────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+
+# ─────────────────────────────────────────────
+# OS Files
+# ─────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─────────────────────────────────────────────
+# CircuitMind Generated Outputs
+# ─────────────────────────────────────────────
 circuit_diagram.svg
+circuit_output.svg
 circuit_output.json
 circuit_output.sp
 circuit_output.txt
 circuit_gate.json
 generate/output.json
 
-# CV model weights (large binary files — store in cloud storage)
+# ─────────────────────────────────────────────
+# ML / CV Large Files
+# ─────────────────────────────────────────────
 cv_module/models/*.pt
-
-# Dataset (large — not committed to git)
 cv_module/dataset/
 
-# Test artefacts
+# ─────────────────────────────────────────────
+# Test / Debug Outputs
+# ─────────────────────────────────────────────
 diagnose/test_results.json
 explain/test_results.json
 export/TestResults.json
 
-# IDE
-.idea/
-.vscode/
-*.swp
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Tooling
+# ─────────────────────────────────────────────
+# Tooling / Misc
+# ─────────────────────────────────────────────
+*.txt.export
+CircuitMind.txt
 .txtconfig
 .txtignore
 /.txtignore
-*.txt.export
-CircuitMind.txt

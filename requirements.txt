@@ -7,6 +7,9 @@ uvicorn[standard]>=0.29.0
 pydantic>=2.0
 python-multipart>=0.0.9
 
+# Rate limiting (NEW)
+slowapi>=0.1.9
+
 # LLM
 groq>=0.4.0
 python-dotenv>=1.0.0
@@ -16,6 +19,7 @@ schemdraw>=0.19
 
 # Web UI (optional — only needed for app_streamlit.py)
 streamlit>=1.35.0
+requests>=2.32.0
 
 # Computer Vision (optional — only needed for cv_module)
 # ultralytics>=8.2.0
