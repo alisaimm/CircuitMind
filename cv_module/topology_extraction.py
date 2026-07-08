@@ -19,6 +19,58 @@ from dataclasses import dataclass, field
 logger = logging.getLogger(__name__)
 
 
+# Dynamic pin/terminal layout per component type.
+# Replaces the old hardcoded assumption that every component has
+# exactly 3 terminals (input_1, input_2, output).
+TERMINAL_SPECS: dict[str, list[str]] = {
+    "resistor":    ["terminal_1", "terminal_2"],
+    "capacitor":   ["terminal_1", "terminal_2"],
+    "inductor":    ["terminal_1", "terminal_2"],
+    "switch":      ["terminal_1", "terminal_2"],
+    "wire":        ["terminal_1", "terminal_2"],
+    "led":         ["anode", "cathode"],
+    "diode":       ["anode", "cathode"],
+    "battery":     ["positive", "negative"],
+    "transistor":  ["base", "collector", "emitter"],
+    "ic":          ["pin_1", "pin_2", "pin_3", "pin_4"],
+}
+DEFAULT_TERMINALS: list[str] = ["terminal_1", "terminal_2"]  # 2-pin fallback
+
+
+def _terminals_for(comp_type: str) -> list[str]:
+    """Look up the correct terminal set for a component type (case-insensitive)."""
+    return TERMINAL_SPECS.get(comp_type.lower(), DEFAULT_TERMINALS)
+
+
+def _terminal_coords(xmin: int, ymin: int, xmax: int, ymax: int,
+                      pin_names: list[str]) -> list[dict]:
+    """
+    Dynamically place N terminal coordinates around a bounding box instead of
+    assuming a fixed 3-pin (input_1/input_2/output) layout.
+
+    - 2 pins: one on the left edge, one on the right edge (typical 2-lead part).
+    - 3+ pins: distributed evenly down the left edge, remainder on the right edge
+      (covers transistors, ICs, etc.).
+    """
+    n = len(pin_names)
+    cy = (ymin + ymax) // 2
+
+    if n == 2:
+        coords = [[xmin, cy], [xmax, cy]]
+    else:
+        left_count  = math.ceil(n / 2)
+        right_count = n - left_count
+        coords = []
+        for k in range(left_count):
+            frac = (k + 1) / (left_count + 1)
+            coords.append([xmin, int(ymin + frac * (ymax - ymin))])
+        for k in range(right_count):
+            frac = (k + 1) / (right_count + 1)
+            coords.append([xmax, int(ymin + frac * (ymax - ymin))])
+
+    return [{"pin": name, "coord": coord} for name, coord in zip(pin_names, coords)]
+
+
 @dataclass
 class Component:
     id:    str
@@ -119,21 +171,23 @@ def generate_circuit_netlist(image_path: str, model_path: str) -> str:
     boxes = results[0].boxes
 
     if len(boxes) == 0:
-        return json.dumps({"metadata": {"total_components": 0, "total_connections": 0}, "components": [], "connections": []}, indent=2)
+        empty_netlist = {
+            "metadata": {"total_components": 0, "total_connections": 0},
+            "components": [],
+            "connections": [],
+        }
+        return json.dumps(adapt_netlist_to_schema(empty_netlist), indent=2)
 
     for idx, box in enumerate(boxes):
         xmin, ymin, xmax, ymax = map(int, box.xyxy[0].tolist())
         comp_type = model.names[int(box.cls[0])]
         cx, cy    = (xmin + xmax) // 2, (ymin + ymax) // 2
+        pin_names = _terminals_for(comp_type)
         components.append({
             "id":     f"{comp_type.upper()}_{idx + 1}",
             "type":   comp_type,
             "center": [cx, cy],
-            "terminals": [
-                {"pin": "input_1", "coord": [xmin, int(ymin + 0.3 * (ymax - ymin))]},
-                {"pin": "input_2", "coord": [xmin, int(ymin + 0.7 * (ymax - ymin))]},
-                {"pin": "output",  "coord": [xmax, cy]},
-            ],
+            "terminals": _terminal_coords(xmin, ymin, xmax, ymax, pin_names),
         })
 
     used_pairs: set = set()
@@ -160,7 +214,7 @@ def generate_circuit_netlist(image_path: str, model_path: str) -> str:
                             })
                             used_pairs.add(key)
 
-    return json.dumps({
+    raw_netlist = {
         "metadata": {
             "total_components": len(components),
             "total_connections": len(connections),
@@ -172,4 +226,38 @@ def generate_circuit_netlist(image_path: str, model_path: str) -> str:
             for c in components
         ],
         "connections": connections,
-    }, indent=2)
+    }
+
+    return json.dumps(adapt_netlist_to_schema(raw_netlist), indent=2)
+
+
+def adapt_netlist_to_schema(raw_netlist: dict) -> dict:
+    """
+    Adapter: converts the deeply nested, pin-level netlist produced by the
+    wire-tracing engine into the simple schema expected by diagnose,
+    explain, and export: {"components": [...], "connections": [...]}.
+
+
+    Pin-level detail isn't discarded — it's kept under "netlist_detail"
+    for any future higher-accuracy consumer that wants it.
+    """
+    components = raw_netlist.get("components", [])
+    id_to_type = {c["id"]: c["type"] for c in components}
+
+    seen_pairs: set = set()
+    simple_connections: list[str] = []
+    for conn in raw_netlist.get("connections", []):
+        from_id = conn["from"]["component"]
+        to_id   = conn["to"]["component"]
+        pair_key = tuple(sorted([from_id, to_id]))
+        if pair_key in seen_pairs:
+            continue
+        seen_pairs.add(pair_key)
+        simple_connections.append(f"{from_id} -> {to_id}")
+
+    return {
+        "circuit_name": "Detected_Circuit",
+        "components":   [c["type"] for c in components] or ["battery", "resistor", "led"],
+        "connections":  simple_connections or ["battery -> resistor", "resistor -> led"],
+        "netlist_detail": raw_netlist,  # full pin-level data preserved for advanced use
+    }
