@@ -1,68 +1,49 @@
 """
 CircuitMind - Streamlit Web UI
-Refactored to use FastAPI HTTP endpoints
+Monolithic Architecture (Direct Python Imports)
 """
 
 import os
+import sys
 import json
 import base64
+import traceback
 from dotenv import load_dotenv
-import requests
 import streamlit as st
+
+# Ensure root path is in sys.path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from generate.generate import generate_circuit as _generate_circuit
+from explain.explain_module import explain_circuit as _explain_circuit
+from diagnose.diagnose_module import diagnose_circuit as _diagnose_circuit
+from export.export_module import export_module as _export_module
 
 load_dotenv()
 
-# ── API CONFIG ────────────────────────────────────────────────────────────────
-API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
-API_KEY = os.getenv("CIRCUITMIND_API_KEY")
-HEADERS = {
-    "Content-Type": "application/json",
-    "X-API-KEY": API_KEY,
-}
+# ── API WRAPPER FUNCTIONS (Local) ─────────────────────────────────────────────
 
-# ── API WRAPPER FUNCTIONS ─────────────────────────────────────────────────────
-
-def _post_json(endpoint, payload):
-    url = f"{API_BASE_URL.rstrip('/')}/{endpoint.lstrip('/')}"
+def _catch_errors(func, *args, **kwargs):
     try:
-        response = requests.post(url, json=payload, headers=HEADERS, timeout=30)
-        try:
-            data = response.json()
-        except ValueError as exc:
-            return {"error": f"Invalid JSON response from API: {exc}"}
-
-        if response.status_code != 200:
-            message = (
-                data.get("detail")
-                or data.get("error")
-                or f"Request failed with status {response.status_code}"
-            )
-            return {"error": message}
-
-        return data
-    except requests.exceptions.RequestException as exc:
-        return {"error": f"Request failed: {exc}"}
-    except json.JSONDecodeError as exc:
-        return {"error": f"Invalid JSON response from API: {exc}"}
-
+        res = func(*args, **kwargs)
+        # If the function itself returns an error dict, pass it through
+        if isinstance(res, dict) and "error" in res:
+            return res
+        return res
+    except Exception as e:
+        return {"error": f"Internal Error: {str(e)}"}
 
 def generate_circuit(prompt):
-    return _post_json("/generate", {"prompt": prompt})
-
+    return _catch_errors(_generate_circuit, prompt)
 
 def explain_circuit(data):
-    return _post_json("/explain", {"circuit_json": data})
-
+    return _catch_errors(_explain_circuit, data)
 
 def diagnose_circuit(data):
-    return _post_json("/diagnose", {"circuit_json": data})
-
+    return _catch_errors(_diagnose_circuit, data)
 
 def export_module(data, export_format="svg"):
-    return _post_json(
-        "/export",
-        {"circuit_json": data, "export_format": export_format},
-    )
+    return _catch_errors(_export_module, data, export_format=export_format)
 
 
 # ── PAGE CONFIG ────────────────────────────────────────────────────────────────
